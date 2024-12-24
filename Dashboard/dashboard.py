@@ -72,7 +72,13 @@ def create_clustering(df):
 
     return clustering
 
-all_df = pd.read_csv("https://raw.githubusercontent.com/Firmnm/Dicoding/main/main_data.csv")
+def categorize_hour(hour):
+    if 7 <= hour <= 9 or 17 <= hour <= 19:
+        return 'Peak Hours'
+    else:
+        return 'Off-Peak Hours'
+
+all_df = pd.read_csv("https://raw.githubusercontent.com/Firmnm/Dicoding-BikeSharing_Dataset/main/Dashboard/main_data.csv")
 
 datetime_columns = ["dteday"]
 all_df.sort_values(by="dteday", inplace=True)
@@ -85,7 +91,7 @@ min_date = all_df["dteday"].min()
 max_date = all_df["dteday"].max()
 
 with st.sidebar:
-    st.image("https://raw.githubusercontent.com/Firmnm/Dicoding/main/logo.png")
+    st.image("https://raw.githubusercontent.com/Firmnm/Dicoding-BikeSharing_Dataset/main/Dashboard/logo.png")
 
     start_date, end_date = st.date_input(
         label='Rentang Waktu', min_value=min_date,
@@ -102,6 +108,11 @@ monthly_rentals_df = create_monthly_rentals_df(main_df)
 byseason_df = create_byseasons_df(main_df)
 byweather_df = create_byweather_df(main_df)
 clustering = create_clustering(main_df)
+pivot_df = main_df.pivot_table(index='hr', columns='weekday', values='cnt', aggfunc='sum')
+main_df['hour_category'] = main_df['hr'].apply(categorize_hour)
+hour_category_stats = main_df.groupby('hour_category')['cnt'].sum().reset_index()
+peak_rentals = hour_category_stats[hour_category_stats['hour_category'] == 'Peak Hours']['cnt'].values[0]
+off_peak_rentals = hour_category_stats[hour_category_stats['hour_category'] == 'Off-Peak Hours']['cnt'].values[0]
 
 st.header('Bike Sharing Dashboard 🚲')
 
@@ -196,7 +207,6 @@ ax.grid(axis='y', linestyle='--', alpha=0.7)
 st.pyplot(fig)
 
 st.subheader("Rental Distribution by Hour and Weekday")
-pivot_df = main_df.pivot_table(index='hr', columns='weekday', values='cnt', aggfunc='sum')
 fig, ax = plt.subplots(figsize=(10, 6))
 pivot_df.plot(kind='bar', stacked=True, ax=ax, colormap='tab20')
 ax.set_xlabel('Hour', fontsize=12)
@@ -205,6 +215,25 @@ ax.set_title('Stacked Bar Chart of Total Rentals by Hour and Weekday', fontsize=
 ax.legend(title='Weekday', bbox_to_anchor=(1.05, 1), loc='upper left')
 ax.tick_params(axis='x', rotation=0)
 st.pyplot(fig)
+
+
+st.subheader("Clustering by Busy Hours")
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.barplot(
+    x='hour_category',
+    y='cnt',
+    data=hour_category_stats,
+    palette={'Peak Hours': 'orange', 'Off-Peak Hours': 'skyblue'},
+    ax=ax
+)
+ax.set_title("Total Rentals by Busy Hours", fontsize=15)
+ax.set_xlabel("Busy Hours Category", fontsize=12)
+ax.set_ylabel("Total Rentals", fontsize=12)
+st.pyplot(fig)
+
+st.write("### Rental Summary by Busy Hours:")
+st.write(f"**Peak Hours:** {peak_rentals:,} rentals")
+st.write(f"**Off-Peak Hours:** {off_peak_rentals:,} rentals")
 
 st.subheader("Total Bike Rentals by Customer Type")
 fig, ax = plt.subplots(figsize=(10, 6))
